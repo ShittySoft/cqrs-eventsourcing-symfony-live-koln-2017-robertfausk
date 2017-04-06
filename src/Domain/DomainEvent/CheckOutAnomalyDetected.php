@@ -6,7 +6,7 @@ namespace Building\Domain\DomainEvent;
 
 use Prooph\EventSourcing\AggregateChanged;
 
-final class CheckInAnomalyDetected extends AggregateChanged
+final class CheckOutAnomalyDetected extends AggregateChanged
 {
     public static function fromUser($username, $buildingId)
     {

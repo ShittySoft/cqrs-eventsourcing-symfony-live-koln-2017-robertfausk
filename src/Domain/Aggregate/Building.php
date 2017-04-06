@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Building\Domain\Aggregate;
 
+use Building\Domain\DomainEvent\CheckInAnomalyDetected;
+use Building\Domain\DomainEvent\CheckOutAnomalyDetected;
 use Building\Domain\DomainEvent\NewBuildingWasRegistered;
 use Building\Domain\DomainEvent\UserCheckedIn;
 use Building\Domain\DomainEvent\UserCheckedOut;
@@ -56,28 +58,32 @@ final class Building extends AggregateRoot
      */
     public function checkInUserIntoBuilding(string $username)
     {
-        if (array_key_exists($username, $this->checkedInUsers)) {
-            $this->recordThat(
-                UserDoubleCheckedIn::fromBuilding($username, $this->uuid)
-            );
-        }
+        $isAnomalyDetected = array_key_exists($username, $this->checkedInUsers);
 
         $this->recordThat(
             UserCheckedIn::toBuilding($username, $this->uuid)
         );
+
+        if ($isAnomalyDetected) {
+            $this->recordThat(
+                CheckInAnomalyDetected::fromUser($username, $this->uuid)
+            );
+        }
     }
 
     public function checkOutUserFromBuilding(string $username)
     {
-        if (!array_key_exists($username, $this->checkedInUsers)) {
-            $this->recordThat(
-                UserDoubleCheckedOut::fromBuilding($username, $this->uuid)
-            );
-        }
+        $isAnomalyDetected = !array_key_exists($username, $this->checkedInUsers);
 
         $this->recordThat(
             UserCheckedOut::fromBuilding($username, $this->uuid)
         );
+
+        if ($isAnomalyDetected) {
+            $this->recordThat(
+                CheckOutAnomalyDetected::fromUser($username, $this->uuid)
+            );
+        }
     }
 
     /** automatically called when event is fired */
