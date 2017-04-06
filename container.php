@@ -11,8 +11,10 @@ use Bernard\QueueFactory;
 use Bernard\QueueFactory\PersistentFactory;
 use Building\Domain\Aggregate\Building;
 use Building\Domain\Command;
+use Building\Domain\DomainEvent\CheckInAnomalyDetected;
 use Building\Domain\DomainEvent\UserCheckedIn;
 use Building\Domain\DomainEvent\UserCheckedOut;
+use Building\Domain\DomainEvent\UserDoubleCheckedIn;
 use Building\Domain\Repository\BuildingRepositoryInterface;
 use Building\Infrastructure\Repository\BuildingRepository;
 use Doctrine\DBAL\Connection;
@@ -220,6 +222,41 @@ return new ServiceManager([
                 $building->checkOutUserFromBuilding($checkOut->username());
                 $buildings->add($building);
             };
+        },
+        Command\NotifySecurityOfAnomaly::class => function () : callable {
+            return function (Command\NotifySecurityOfAnomaly $notifySecurityOfAnomaly) {
+                // queries, logic, etc
+                // command can create additional events and commands
+                error_log(
+                    sprintf(
+                        'yo somebody is being fishy: %s %s',
+                        $notifySecurityOfAnomaly->username(),
+                        $notifySecurityOfAnomaly->buildingId()->toString()
+                    )
+                );
+            };
+        },
+        /**
+         * 1. "check in or check out anomaly" event
+         * 2. listener for that event
+         * 3. listener should fire command "call security"
+         * 4. command handler simply prints via 'error_log("something's wrong")'
+         */
+        CheckInAnomalyDetected::class . '-listeners' => function (ContainerInterface $container) : array {
+
+            // security call
+            // email, phone call etc
+            // react on double check in
+            var_dump('heyho');
+            die;
+
+            $commandBus = $container->get(CommandBus::class);
+
+            return [
+                function (CheckInAnomalyDetected $anomaly) {
+
+                }
+            ];
         },
         // many code in projectors
         // could do same with mysql/doctrine/s3 etc

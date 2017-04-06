@@ -7,6 +7,8 @@ namespace Building\Domain\Aggregate;
 use Building\Domain\DomainEvent\NewBuildingWasRegistered;
 use Building\Domain\DomainEvent\UserCheckedIn;
 use Building\Domain\DomainEvent\UserCheckedOut;
+use Building\Domain\DomainEvent\UserDoubleCheckedIn;
+use Building\Domain\DomainEvent\UserDoubleCheckedOut;
 use Prooph\EventSourcing\AggregateRoot;
 use Rhumsaa\Uuid\Uuid;
 
@@ -55,7 +57,9 @@ final class Building extends AggregateRoot
     public function checkInUserIntoBuilding(string $username)
     {
         if (array_key_exists($username, $this->checkedInUsers)) {
-            throw new \DomainException(sprintf('user "%s" already checked in', $username));
+            $this->recordThat(
+                UserDoubleCheckedIn::fromBuilding($username, $this->uuid)
+            );
         }
 
         $this->recordThat(
@@ -66,7 +70,9 @@ final class Building extends AggregateRoot
     public function checkOutUserFromBuilding(string $username)
     {
         if (!array_key_exists($username, $this->checkedInUsers)) {
-            throw new \DomainException(sprintf('user "%s" already checked out', $username));
+            $this->recordThat(
+                UserDoubleCheckedOut::fromBuilding($username, $this->uuid)
+            );
         }
 
         $this->recordThat(
@@ -90,6 +96,18 @@ final class Building extends AggregateRoot
 
     /** automatically called when event is fired */
     public function whenUserCheckedOut(UserCheckedOut $event)
+    {
+        unset($this->checkedInUsers[$event->username()]);
+    }
+
+    /** automatically called when event is fired */
+    public function whenUserDoubleCheckedIn(UserCheckedIn $event)
+    {
+        $this->checkedInUsers[$event->username()] = null;
+    }
+
+    /** automatically called when event is fired */
+    public function whenCheckInAnomalyDetected(UserCheckedOut $event)
     {
         unset($this->checkedInUsers[$event->username()]);
     }
