@@ -80,7 +80,16 @@ call_user_func(function () {
     });
 
     $app->post('/checkout/{buildingId}', function (Request $request, Response $response) use ($sm) : Response {
+        $buildingId = $request->getAttribute('buildingId');
+        $commandBus = $sm->get(CommandBus::class);
+        $commandBus->dispatch(
+            Command\CheckOutUserFromBuilding::fromUsernameAndBuildingUuid(
+                $request->getParsedBody()['username'],
+                Uuid::fromString($buildingId)
+            )
+        );
 
+        return $response->withAddedHeader('Location', '/building/' . $buildingId);
     });
 
     $app->pipeDispatchMiddleware();

@@ -8,8 +8,13 @@ use Prooph\EventSourcing\AggregateChanged;
 
 final class UserCheckedOut extends AggregateChanged
 {
-    public function name() : string
+    public static function fromBuilding($username, $buildingId)
     {
-        return $this->payload['name'];
+        return self::occur(
+            (string) $buildingId,
+            [
+                'username' => $username,
+            ]
+        );
     }
 }
