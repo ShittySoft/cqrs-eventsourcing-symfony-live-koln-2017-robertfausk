@@ -70,7 +70,7 @@ return new ServiceManager([
         EventStore::class                  => function (ContainerInterface $container) {
             $eventBus   = new EventBus();
             $eventStore = new EventStore(
-                new DoctrineEventStoreAdapter(
+                new DoctrineEventStoreAdapter(  // add details to event; extend details here; e.g. mappings for table name
                     $container->get(Connection::class),
                     new FQCNMessageFactory(),
                     new NoOpMessageConverter(),
@@ -197,6 +197,15 @@ return new ServiceManager([
 
             return function (Command\RegisterNewBuilding $command) use ($buildings) {
                 $buildings->add(Building::new($command->name()));
+            };
+        },
+        Command\CheckInUserIntoBuilding::class => function (ContainerInterface $container) : callable {
+            $buildings = $container->get(BuildingRepositoryInterface::class);
+
+            return function (Command\CheckInUserIntoBuilding $checkIn) use ($buildings) {
+                $building = $buildings->get($checkIn->buildingId());
+                $building->checkInUserIntoBuilding($checkIn->username());
+                $buildings->add($building);
             };
         },
         BuildingRepositoryInterface::class => function (ContainerInterface $container) : BuildingRepositoryInterface {

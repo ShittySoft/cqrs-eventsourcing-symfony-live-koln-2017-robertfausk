@@ -21,11 +21,21 @@ final class BuildingRepository implements BuildingRepositoryInterface
         $this->aggregateRepository = $aggregateRepository;
     }
 
+    /**
+     * @param Building $building
+     *
+     * @return void
+     */
     public function add(Building $building)
     {
         $this->aggregateRepository->addAggregateRoot($building);
     }
 
+    /**
+     * @param Uuid $id
+     *
+     * @return Building
+     */
     public function get(Uuid $id) : Building
     {
         return $this->aggregateRepository->getAggregateRoot($id->toString());

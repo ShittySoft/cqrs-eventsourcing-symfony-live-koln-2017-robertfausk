@@ -6,7 +6,12 @@ namespace Building\Domain\Command;
 
 use Prooph\Common\Messaging\Command;
 
-final class RegisterNewBuilding extends Command
+/**
+ * Only data / value objects - no entities! all have to be serializable
+ *
+ * @package Building\Domain\Command
+ */
+final class RegisterNewBuilding extends Command // extends Command shouldnt be used but simplier for now; should be framework independent
 {
     /**
      * @var string
