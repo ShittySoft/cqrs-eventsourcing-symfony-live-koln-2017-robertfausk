@@ -23,6 +23,11 @@ final class Building extends AggregateRoot
     private $name;
 
     /**
+     * @var bool[] indexed by username
+     */
+    private $checkedInUsers;
+
+    /**
      * @param string $name
      *
      * @return Building
@@ -34,7 +39,8 @@ final class Building extends AggregateRoot
         $self->recordThat(NewBuildingWasRegistered::occur(
             (string) Uuid::uuid4(),
             [
-                'name' => $name
+                'name' => $name,
+                'usernames' => [],
             ]
         ));
 
@@ -48,6 +54,10 @@ final class Building extends AggregateRoot
      */
     public function checkInUserIntoBuilding(string $username)
     {
+        if (array_key_exists($username, $this->checkedInUsers)) {
+            throw new \DomainException(sprintf('user "%s" already checked in', $username));
+        }
+
         $this->recordThat(
             UserCheckedIn::toBuilding($username, $this->uuid)
         );
@@ -55,6 +65,10 @@ final class Building extends AggregateRoot
 
     public function checkOutUserFromBuilding(string $username)
     {
+        if (!array_key_exists($username, $this->checkedInUsers)) {
+            throw new \DomainException(sprintf('user "%s" already checked out', $username));
+        }
+
         $this->recordThat(
             UserCheckedOut::fromBuilding($username, $this->uuid)
         );
@@ -65,18 +79,19 @@ final class Building extends AggregateRoot
     {
         $this->uuid = $event->uuid();
         $this->name = $event->name();
+        $this->checkedInUsers = [];
     }
 
     /** automatically called when event is fired */
     public function whenUserCheckedIn(UserCheckedIn $event)
     {
-//        can be empty // no need to do anything
+        $this->checkedInUsers[$event->username()] = null;
     }
 
     /** automatically called when event is fired */
     public function whenUserCheckedOut(UserCheckedOut $event)
     {
-//        can be empty // no need to do anything
+        unset($this->checkedInUsers[$event->username()]);
     }
 
     /**

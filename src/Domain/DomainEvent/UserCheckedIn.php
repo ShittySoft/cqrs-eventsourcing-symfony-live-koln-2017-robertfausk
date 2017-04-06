@@ -17,4 +17,9 @@ final class UserCheckedIn extends AggregateChanged
             ]
         );
     }
+
+    public function username() : string
+    {
+        return $this->payload['username'];
+    }
 }
