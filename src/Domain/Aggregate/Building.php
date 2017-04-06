@@ -11,6 +11,7 @@ use Building\Domain\DomainEvent\UserCheckedIn;
 use Building\Domain\DomainEvent\UserCheckedOut;
 use Building\Domain\DomainEvent\UserDoubleCheckedIn;
 use Building\Domain\DomainEvent\UserDoubleCheckedOut;
+use Building\Domain\Finder\IsUserBlackListedInterface;
 use Prooph\EventSourcing\AggregateRoot;
 use Rhumsaa\Uuid\Uuid;
 
@@ -52,12 +53,17 @@ final class Building extends AggregateRoot
     }
 
     /**
-     * @param string $username
+     * @param string                     $username
+     * @param IsUserBlackListedInterface $blacklisted
      *
      * @return $this
      */
-    public function checkInUserIntoBuilding(string $username)
+    public function checkInUserIntoBuilding(string $username, IsUserBlackListedInterface $blacklisted)
     {
+        if ($blacklisted($username)) {
+            throw new \DomainException(sprintf('username "%s" blacklisted', $username));
+        }
+
         $isAnomalyDetected = array_key_exists($username, $this->checkedInUsers);
 
         $this->recordThat(

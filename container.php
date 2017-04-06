@@ -14,8 +14,8 @@ use Building\Domain\Command;
 use Building\Domain\DomainEvent\CheckInAnomalyDetected;
 use Building\Domain\DomainEvent\UserCheckedIn;
 use Building\Domain\DomainEvent\UserCheckedOut;
-use Building\Domain\DomainEvent\UserDoubleCheckedIn;
 use Building\Domain\Repository\BuildingRepositoryInterface;
+use Building\Domain\Finder\IsUserBlackListedInterface;
 use Building\Infrastructure\Repository\BuildingRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Driver\PDOSqlite\Driver;
@@ -207,10 +207,11 @@ return new ServiceManager([
         },
         Command\CheckInUserIntoBuilding::class => function (ContainerInterface $container) : callable {
             $buildings = $container->get(BuildingRepositoryInterface::class);
+            $blacklist = $container->get(IsUserBlackListedInterface::class);
 
-            return function (Command\CheckInUserIntoBuilding $checkIn) use ($buildings) {
+            return function (Command\CheckInUserIntoBuilding $checkIn) use ($buildings, $blacklist) {
                 $building = $buildings->get($checkIn->buildingId());
-                $building->checkInUserIntoBuilding($checkIn->username());
+                $building->checkInUserIntoBuilding($checkIn->username(), $blacklist);
                 $buildings->add($building);
             };
         },
@@ -345,6 +346,15 @@ return new ServiceManager([
                     new AggregateTranslator()
                 )
             );
+        },
+        IsUserBlackListedInterface::class => function () : IsUserBlackListedInterface {
+            return new class implements IsUserBlackListedInterface
+            {
+                public function __invoke(string $username) : bool
+                {
+                    return in_array($username, ['realDonaldTrump']);
+                }
+            };
         },
     ],
 ]);
