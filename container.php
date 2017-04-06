@@ -11,6 +11,8 @@ use Bernard\QueueFactory;
 use Bernard\QueueFactory\PersistentFactory;
 use Building\Domain\Aggregate\Building;
 use Building\Domain\Command;
+use Building\Domain\DomainEvent\UserCheckedIn;
+use Building\Domain\DomainEvent\UserCheckedOut;
 use Building\Domain\Repository\BuildingRepositoryInterface;
 use Building\Infrastructure\Repository\BuildingRepository;
 use Doctrine\DBAL\Connection;
@@ -24,6 +26,7 @@ use Prooph\Common\Event\ActionEventListenerAggregate;
 use Prooph\Common\Event\ProophActionEventEmitter;
 use Prooph\Common\Messaging\FQCNMessageFactory;
 use Prooph\Common\Messaging\NoOpMessageConverter;
+use Prooph\EventSourcing\AggregateChanged;
 use Prooph\EventSourcing\EventStoreIntegration\AggregateTranslator;
 use Prooph\EventStore\Adapter\Doctrine\DoctrineEventStoreAdapter;
 use Prooph\EventStore\Adapter\Doctrine\Schema\EventStoreSchema;
@@ -31,6 +34,7 @@ use Prooph\EventStore\Adapter\PayloadSerializer\JsonPayloadSerializer;
 use Prooph\EventStore\Aggregate\AggregateRepository;
 use Prooph\EventStore\Aggregate\AggregateType;
 use Prooph\EventStore\EventStore;
+use Prooph\EventStore\Stream\StreamName;
 use Prooph\EventStoreBusBridge\EventPublisher;
 use Prooph\EventStoreBusBridge\TransactionManager;
 use Prooph\ServiceBus\Async\MessageProducer;
@@ -216,6 +220,85 @@ return new ServiceManager([
                 $building->checkOutUserFromBuilding($checkOut->username());
                 $buildings->add($building);
             };
+        },
+        // many code in projectors
+        // could do same with mysql/doctrine/s3 etc
+        // use service of cource
+        UserCheckedIn::class . '-projectors' => function (ContainerInterface $container) : array {
+            //get dependencies from container
+            $eventStore = $container->get(EventStore::class);
+
+            return [
+                // naive solution
+                function (UserCheckedIn $event) {
+                    $file = __DIR__ . '/public/naive-' . $event->aggregateId() . '.json';
+                    $users = [];
+                    if (is_file($file)) {
+                        $users = json_decode(file_get_contents($file), true);
+                    }
+                    file_put_contents($file, json_encode(array_values(array_unique(array_merge($users, [$event->username()])))));
+                },
+                // proper solution (goes through full history)
+                function (AggregateChanged $event) use ($eventStore) {
+                    $users = [];
+                    $events = $eventStore->loadEventsByMetadataFrom(
+                        new StreamName('event_stream'),
+                        ['aggregate_id' => $event->aggregateId()]
+                    );
+
+                    foreach ($events as $replayedEvent) {
+                        if ($replayedEvent instanceof UserCheckedIn) {
+                            $users[$replayedEvent->username()] = null;
+                        }
+
+                        if ($replayedEvent instanceof UserCheckedOut) {
+                            unset($users[$replayedEvent->username()]);
+                        }
+                        $file = __DIR__ . '/public/proper-' . $event->aggregateId() . '.json';
+                        file_put_contents($file, json_encode(array_values(array_keys($users))));
+                    }
+                }
+            ];
+        },
+        // many code in projectors
+        // could do same with mysql/doctrine/s3 etc
+        // use service of cource
+        // same as UserCheckedIn
+        UserCheckedOut::class . '-projectors' => function (ContainerInterface $container) : array {
+            //get dependencies from container
+            $eventStore = $container->get(EventStore::class);
+
+            return [
+                // naive solution
+                function (UserCheckedIn $event) {
+                    $file = __DIR__ . '/public/naive-' . $event->aggregateId() . '.json';
+                    $users = [];
+                    if (is_file($file)) {
+                        $users = json_decode(file_get_contents($file), true);
+                    }
+                    file_put_contents($file, json_encode(array_values(array_unique(array_merge($users, [$event->username()])))));
+                },
+                // proper solution (goes through full history)
+                function (AggregateChanged $event) use ($eventStore) {
+                    $users = [];
+                    $events = $eventStore->loadEventsByMetadataFrom(
+                        new StreamName('event_stream'),
+                        ['aggregate_id' => $event->aggregateId()]
+                    );
+
+                    foreach ($events as $replayedEvent) {
+                        if ($replayedEvent instanceof UserCheckedIn) {
+                            $users[$replayedEvent->username()] = null;
+                        }
+
+                        if ($replayedEvent instanceof UserCheckedOut) {
+                            unset($users[$replayedEvent->username()]);
+                        }
+                        $file = __DIR__ . '/public/proper-' . $event->aggregateId() . '.json';
+                        file_put_contents($file, json_encode(array_values(array_keys($users))));
+                    }
+                }
+            ];
         },
         BuildingRepositoryInterface::class => function (ContainerInterface $container) : BuildingRepositoryInterface {
             return new BuildingRepository(
